@@ -120,6 +120,9 @@ mykeyboardlayout = awful.widget.keyboardlayout()
 -- Create a textclock widget
 mytextclock = wibox.widget.textclock()
 
+local volume_widget_factory = require("awesome-wm-widgets.volume-widget.volume")
+local my_volume_widget = volume_widget_factory()
+
 -- Create a wibox for each screen and add it
 local taglist_buttons = gears.table.join(
                     awful.button({ }, 1, function(t) t:view_only() end),
@@ -217,6 +220,7 @@ awful.screen.connect_for_each_screen(function(s)
         { -- Right widgets
             layout = wibox.layout.fixed.horizontal,
             mykeyboardlayout,
+            my_volume_widget,
             wibox.widget.systray(),
             mytextclock,
             s.mylayoutbox,
@@ -334,9 +338,9 @@ globalkeys = gears.table.join(
               {description = "show the menubar", group = "launcher"}),
 
     -- Volume control
-    awful.key({ }, "XF86AudioLowerVolume", function () awful.spawn("amixer -D pulse sset Master 5%-") end, {description = "increase volume", group = "custom"}),
-    awful.key({ }, "XF86AudioRaiseVolume", function () awful.spawn("amixer -D pulse sset Master 5%+") end, {description = "decrease volume", group = "custom"}),
-    awful.key({ }, "XF86AudioMute", function () awful.spawn("amixer -D pulse set Master +1 toggle") end, {description = "mute volume", group = "custom"}),
+    awful.key({ }, "XF86AudioLowerVolume", function () my_volume_widget:increase_volume(-5) end, {description = "increase volume", group = "custom"}),
+    awful.key({ }, "XF86AudioRaiseVolume", function () my_volume_widget:increase_volume(5) end, {description = "decrease volume", group = "custom"}),
+    awful.key({ }, "XF86AudioMute", function () my_volume_widget:toogle_mute() end, {description = "mute volume", group = "custom"}),
 
     -- Backlight control
     awful.key({ }, "XF86MonBrightnessUp", function () awful.spawn("xbacklight +5") end, {description = "increase brightness", group = "custom"}),
