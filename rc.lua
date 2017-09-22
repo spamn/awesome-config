@@ -122,8 +122,10 @@ mytextclock = wibox.widget.textclock()
 
 local volume_widget_factory = require("widgets.volume")
 local battery_widget_factory = require("widgets.battery")
+local backlight_widget_factory = require("widgets.backlight")
 local my_volume_widget = volume_widget_factory()
 local my_battery_widget = battery_widget_factory()
+local my_backlight_widget = backlight_widget_factory()
 
 -- Create a wibox for each screen and add it
 local taglist_buttons = gears.table.join(
@@ -223,6 +225,7 @@ awful.screen.connect_for_each_screen(function(s)
             layout = wibox.layout.fixed.horizontal,
             mykeyboardlayout,
             my_volume_widget,
+            my_backlight_widget,
 	    my_battery_widget,
             wibox.widget.systray(),
             mytextclock,
@@ -346,8 +349,8 @@ globalkeys = gears.table.join(
     awful.key({ }, "XF86AudioMute", function () my_volume_widget:toogle_mute() end, {description = "mute volume", group = "custom"}),
 
     -- Backlight control
-    awful.key({ }, "XF86MonBrightnessUp", function () awful.spawn("xbacklight +5") end, {description = "increase brightness", group = "custom"}),
-    awful.key({ }, "XF86MonBrightnessDown", function () awful.spawn("xbacklight -5") end, {description = "decrease brightness", group = "custom"})
+    awful.key({ }, "XF86MonBrightnessUp", function () my_backlight_widget:increase_value(5) end, {description = "increase brightness", group = "custom"}),
+    awful.key({ }, "XF86MonBrightnessDown", function () my_backlight_widget:increase_value(-5) end, {description = "decrease brightness", group = "custom"})
 )
 
 clientkeys = gears.table.join(
