@@ -1,0 +1,1 @@
+Originally forked from https://github.com/streetturtle/awesome-wm-widgets and set as submodule. I rewrote much code and added external dependency so that it did not make any sense anymore. However that's why any file in this directory, unless stated otherwise within the file, is licensed under the MIT license.

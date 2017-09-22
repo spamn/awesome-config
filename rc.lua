@@ -120,8 +120,8 @@ mykeyboardlayout = awful.widget.keyboardlayout()
 -- Create a textclock widget
 mytextclock = wibox.widget.textclock()
 
-local volume_widget_factory = require("awesome-wm-widgets.volume-widget.volume")
-local battery_widget_factory = require("awesome-wm-widgets.battery-widget.battery")
+local volume_widget_factory = require("widgets.volume")
+local battery_widget_factory = require("widgets.battery")
 local my_volume_widget = volume_widget_factory()
 local my_battery_widget = battery_widget_factory()
 
