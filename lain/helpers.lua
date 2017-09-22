@@ -69,7 +69,11 @@ end
 -- get first line of a file, return nil if
 -- the file does not exist
 function helpers.first_line(file)
-    return helpers.lines_from(file)[1]
+  if not helpers.file_exists(file) then return nil end
+  local lines = {}
+  for line in io.lines(file) do
+    return line
+  end
 end
 
 -- get first non empty line from a file,
