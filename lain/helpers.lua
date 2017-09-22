@@ -70,7 +70,6 @@ end
 -- the file does not exist
 function helpers.first_line(file)
   if not helpers.file_exists(file) then return nil end
-  local lines = {}
   for line in io.lines(file) do
     return line
   end
