@@ -350,7 +350,10 @@ globalkeys = gears.table.join(
 
     -- Backlight control
     awful.key({ }, "XF86MonBrightnessUp", function () my_backlight_widget:increase_value(5) end, {description = "increase brightness", group = "custom"}),
-    awful.key({ }, "XF86MonBrightnessDown", function () my_backlight_widget:increase_value(-5) end, {description = "decrease brightness", group = "custom"})
+    awful.key({ }, "XF86MonBrightnessDown", function () my_backlight_widget:increase_value(-5) end, {description = "decrease brightness", group = "custom"}),
+
+    --keyboard switch
+    awful.key({ "Mod1" }, "Shift_L", function () mykeyboardlayout.next_layout() end, {description = "switch keyboard layout", group = "custom"})
 )
 
 clientkeys = gears.table.join(
