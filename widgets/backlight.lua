@@ -30,7 +30,6 @@ local function factory(args)
     backlight_widget._notification = nil
     backlight_widget._bar_char_count = args.bar_char_count or 20
     backlight_widget._value = 0
-    backlight_widget._use_files = helpers.file_exists("/sys/class/backlight/intel_backlight/max_brightness") and helpers.file_exists("/sys/class/backlight/intel_backlight/actual_brightness")
     backlight_widget._increase = 0
     backlight_widget._last_update = 0
 
@@ -68,14 +67,6 @@ local function factory(args)
 
     function backlight_widget:update()
         local need_xbacklight_get = true
-        if backlight_widget._use_files then
-            local actual = tonumber(helpers.first_line("/sys/class/backlight/intel_backlight/actual_brightness"))
-            local max = tonumber(helpers.first_line("/sys/class/backlight/intel_backlight/max_brightness"))
-            if actual and max then
-                need_xbacklight_get = false
-                self:_update_widget(100 * actual / max)
-            end
-        end
         need_xbacklight_get = need_xbacklight_get and (not self._widget_update_pending)
         if (need_xbacklight_get) then
             self._widget_update_pending = true
