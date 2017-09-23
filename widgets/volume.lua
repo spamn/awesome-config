@@ -40,38 +40,7 @@ local function factory(args)
     local mute_state = false
     local current_volume = 0
 
-    function w_helper:update()
-        if (not widget_update_pending) then
-            widget_update_pending = true
-            spawn.easy_async(request_command, function(stdout, stderr, exitreason, exitcode)
-                volume_widget:_update_widget(stdout, stderr, exitreason, exitcode)
-            end)
-        end
-    end
-
-    function w_helper:notify()
-        local notify_args = {
-            title = "Volume",
-            text = w_helper:make_progress_bar(),
-            timeout = 1,
-        }
-        if mute_state then
-            -- notify_args.fg = '#ff0000' not working, awesome bug? https://github.com/awesomeWM/awesome/issues/2040
-            notify_args.title = notify_args.title .. " (muted)"
-        end
-        w_helper:generate_notification(notify_args)
-    end
-
-    function w_helper:set_percentage(percentage)
-        awful.spawn("amixer -D pulse sset Master " .. percentage .. "%", false)
-        current_volume = percentage
-    end
-
-    function w_helper:get_percentage()
-        return current_volume
-    end
-
-    function volume_widget:_update_widget(stdout, _, _, _)
+    local function _update_widget(stdout, _, _, _)
         local volume = string.match(stdout, "(%d?%d?%d)%%")
         local mute = string.match(stdout, "%[(o%D%D?)%]")
         mute_state = mute == "off"
@@ -97,6 +66,37 @@ local function factory(args)
 
         w_helper:set_image(volume_icon_name .. ".svg")
         w_helper:update_notification()
+    end
+
+    function w_helper:update()
+        if (not widget_update_pending) then
+            widget_update_pending = true
+            spawn.easy_async(request_command, function(stdout, stderr, exitreason, exitcode)
+                _update_widget(stdout, stderr, exitreason, exitcode)
+            end)
+        end
+    end
+
+    function w_helper:notify()
+        local notify_args = {
+            title = "Volume",
+            text = w_helper:make_progress_bar(),
+            timeout = 1,
+        }
+        if mute_state then
+            -- notify_args.fg = '#ff0000' not working, awesome bug? https://github.com/awesomeWM/awesome/issues/2040
+            notify_args.title = notify_args.title .. " (muted)"
+        end
+        w_helper:generate_notification(notify_args)
+    end
+
+    function w_helper:set_percentage(percentage)
+        awful.spawn("amixer -D pulse sset Master " .. percentage .. "%", false)
+        current_volume = percentage
+    end
+
+    function w_helper:get_percentage()
+        return current_volume
     end
 
     function volume_widget:increase_volume(value)
