@@ -1,7 +1,6 @@
 local awful = require("awful")
 local wibox = require("wibox")
 local spawn = require("awful.spawn")
-local naughty = require("naughty")
 local helpers = require("lib.helpers")
 
 local request_command = 'amixer -D pulse sget Master'
@@ -25,121 +24,88 @@ local function factory(args)
         end
     }
 
-    volume_widget._path_to_icons = args.path_to_icons or "/usr/share/icons/Adwaita/scalable/status/"
-    volume_widget._toogle_mute = false
-    volume_widget._increase = 0
-    volume_widget._widget_update_pending = false
-    volume_widget._notification = nil
-    volume_widget.image = volume_widget._path_to_icons .. "audio-volume-muted-symbolic.svg"
-    volume_widget._bar_char_count = args.bar_char_count or 20
+    local helper_args = { widget = volume_widget, handle_mouse_wheel = true }
+    setmetatable(helper_args, { __index = args })
+    local w_helper = require('lib.widget_helper'):new(helper_args)
 
-    function volume_widget:_update_widget(stdout, _, _, _)
-        local volume = string.match(stdout, "(%d?%d?%d)%%")
-        local mute = string.match(stdout, "%[(o%D%D?)%]")
-        self._mute = mute == "off"
-        self._volume = tonumber(string.format("% 3d", volume))
-        volume = self._volume
+    local toggle_mute = false
+    local increase = 0
+    local widget_update_pending = false
+    local bar_char_count = args.bar_char_count or 20
+    local mute_state = false
+    local current_volume = 0
 
-        self._widget_update_pending = false
-
-        if self._increase ~= 0 then
-            volume = self._volume + self._increase
-            self._increase = 0
-            if volume > 100 then
-                volume = 100
-            elseif volume < 0 then
-                volume = 0
-            end
-            awful.spawn("amixer -D pulse sset Master " .. volume .. "%", false)
-            self._volume = volume
-        end
-
-        if self._toogle_mute then
-            self._toogle_mute = false
-            awful.spawn("amixer -D pulse sset Master toggle", false)
-            self._mute = not self._mute
-        end
-
-        local volume_icon_name
-        if self._mute then volume_icon_name="audio-volume-muted-symbolic"
-        elseif (volume == 0) then volume_icon_name="audio-volume-muted-symbolic"
-        elseif (volume < 33) then volume_icon_name="audio-volume-low-symbolic"
-        elseif (volume < 67) then volume_icon_name="audio-volume-medium-symbolic"
-        elseif (volume <= 100) then volume_icon_name="audio-volume-high-symbolic"
-        end
-        self.image = self._path_to_icons .. volume_icon_name .. ".svg"
-
-        self:update_notification()
-    end
-
-    function volume_widget:update_notification()
-        if self._notification ~= nil then
-            self:notify()
-        end
-    end
-
-    function volume_widget:update()
-        if (not self._widget_update_pending) then
-            self._widget_update_pending = true
+    function w_helper:update()
+        if (not widget_update_pending) then
+            widget_update_pending = true
             spawn.easy_async(request_command, function(stdout, stderr, exitreason, exitcode)
-                self:_update_widget(stdout, stderr, exitreason, exitcode)
+                volume_widget:_update_widget(stdout, stderr, exitreason, exitcode)
             end)
         end
     end
 
-    function volume_widget.update_callback()
-        volume_widget:update()
-    end
-
-    function volume_widget:increase_volume(value)
-        local incr = tonumber(value)
-        if incr ~= nil then
-            self._increase = self._increase + incr
-        end
-        self:update()
-        self:notify()
-    end
-
-    function volume_widget:toogle_mute()
-        self._toogle_mute = not self._toogle_mute
-        self:update()
-        self:notify()
-    end
-
-    function volume_widget:notify()
-        local printed_volume = string.format(" %3d%%", self._volume)
+    function w_helper:notify()
+        local printed_volume = string.format(" %3d%%", current_volume)
         local notif_text = ""
-        local bar_count = math.floor(self._volume * self._bar_char_count / 100 + 0.5)
-        notif_text = string.rep("|", bar_count) .. string.rep(" ", self._bar_char_count - bar_count)
+        local bar_count = math.floor(current_volume * bar_char_count / 100 + 0.5)
+        notif_text = string.rep("|", bar_count) .. string.rep(" ", bar_char_count - bar_count)
         local notify_args = {
             title = "Volume",
             text = notif_text .. printed_volume,
             timeout = 1,
-            destroy = self.notification_destroyed_cb,
         }
-        if self._mute then
+        if mute_state then
             -- notify_args.fg = '#ff0000' not working, awesome bug? https://github.com/awesomeWM/awesome/issues/2040
             notify_args.title = notify_args.title .. " (muted)"
         end
-        if self._notification ~= nil then
-            notify_args.replaces_id = self._notification.id
+        w_helper:generate_notification(notify_args)
+    end
+
+    function w_helper:set_percentage(percentage)
+        awful.spawn("amixer -D pulse sset Master " .. percentage .. "%", false)
+        current_volume = percentage
+    end
+
+    function w_helper.get_percentage()
+        return current_volume
+    end
+
+    function volume_widget:_update_widget(stdout, _, _, _)
+        local volume = string.match(stdout, "(%d?%d?%d)%%")
+        local mute = string.match(stdout, "%[(o%D%D?)%]")
+        mute_state = mute == "off"
+        current_volume = tonumber(string.format("% 3d", volume))
+
+        widget_update_pending = false
+
+        w_helper:handle_increment()
+
+        if toggle_mute then
+            toggle_mute = false
+            awful.spawn("amixer -D pulse sset Master toggle", false)
+            mute_state = not mute_state
         end
-        self._notification = naughty.notify(notify_args)
-    end
 
-    function volume_widget:m_enter()
-        self:notify()
-        self:update()
-    end
-
-    function volume_widget.notification_destroyed_cb()
-        volume_widget._notification = nil
-    end
-
-    function volume_widget:m_leave()
-        if (self._notification ~= nil) then
-            naughty.destroy(self._notification)
+        local volume_icon_name
+        if mute_state then volume_icon_name="audio-volume-muted-symbolic"
+        elseif (current_volume == 0) then volume_icon_name="audio-volume-muted-symbolic"
+        elseif (current_volume < 33) then volume_icon_name="audio-volume-low-symbolic"
+        elseif (current_volume < 67) then volume_icon_name="audio-volume-medium-symbolic"
+        elseif (current_volume <= 100) then volume_icon_name="audio-volume-high-symbolic"
         end
+
+        w_helper:set_image(volume_icon_name .. ".svg")
+        w_helper:update_notification()
+    end
+
+    function volume_widget:increase_volume(value)
+        w_helper:increase_perct(value)
+    end
+
+    function volume_widget:toggle_mute()
+        toggle_mute = not toggle_mute
+        w_helper:notify()
+        w_helper:update()
     end
 
     --[[ allows control volume level by:
@@ -147,28 +113,12 @@ local function factory(args)
     - scrolling when cursor is over the widget
     ]]
     volume_widget:connect_signal("button::press", function(_,_,_,button,mods)
-        local increment = 5;
-        for i,mod in ipairs(mods) do
-            if mod == "Shift" then
-                increment = 1;
-            end
-        end
-        if (button == 4)     then volume_widget:increase_volume(increment)
-        elseif (button == 5) then volume_widget:increase_volume(-increment)
-        elseif (button == 1) then volume_widget:toogle_mute()
-        end
-
+        if (button == 1) then volume_widget:toggle_mute() end
     end)
 
-    -- show notification when hovering with mouse
-    volume_widget:connect_signal("mouse::enter", function() volume_widget:m_enter() end)
-    volume_widget:connect_signal("mouse::leave", function() volume_widget:m_leave() end)
-
-    volume_widget:update()
-    helpers.newtimer("vol", 60, volume_widget.update_callback)
+    w_helper:update()
 
     return volume_widget
-
 end
 
 return factory
