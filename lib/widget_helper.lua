@@ -36,6 +36,20 @@ function factory:new(args)
     local percentage = 0
     local increment = 0
     local handle_mouse_wheel = args.handle_mouse_wheel or false -- call increase_perct on mouse wheel
+    local min_notify_char_count = args.min_notify_char_count or 25
+
+    function base:make_progress_bar(_char_width)
+        local char_width = _char_width or min_notify_char_count
+        local ret = ""
+        local perct = self:get_percentage()
+        local max_bar_count = char_width - 5
+        if (max_bar_count > 0) then
+            local bar_count = math.floor(perct * max_bar_count / 100 + 0.5)
+            ret = string.rep("|", bar_count) .. string.rep(" ", max_bar_count - bar_count)
+        end
+        ret = ret .. string.format(" %3d%%", perct)
+        return ret
+    end
 
     base.update = function(self)
         -- function to override, called periodically and when entering widget with mouse and a few other events
@@ -88,6 +102,9 @@ function factory:new(args)
         if notification ~= nil then
             notif_args.replaces_id = notification.id
         end
+        if (#notif_args.title < min_notify_char_count) then
+            notif_args.title = notif_args.title .. string.rep(" ", min_notify_char_count - #notif_args.title)
+        end
         notif_args.destroy = function() notification = nil end
         notification = naughty.notify(notif_args)
     end
@@ -121,6 +138,7 @@ function factory:new(args)
     hf_timer:stop()
     helpers.newtimer(args.name or "timer_with_no_name", lf_period, function() widget_helper:update() end)
 
+    -- allow control when cursor is over the widget and using mouse wheel
     if (handle_mouse_wheel) then
         widget:connect_signal("button::press", function(_,_,_,button,mods)
             local incr = 5;

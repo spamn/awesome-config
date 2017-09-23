@@ -24,7 +24,11 @@ local function factory(args)
         end
     }
 
-    local helper_args = { widget = volume_widget, handle_mouse_wheel = true }
+    local helper_args = {
+        widget = volume_widget,
+        -- control with mouse wheel when cursor is over the widget
+        handle_mouse_wheel = true
+    }
     setmetatable(helper_args, { __index = args })
     local w_helper = require('lib.widget_helper'):new(helper_args)
 
@@ -45,13 +49,9 @@ local function factory(args)
     end
 
     function w_helper:notify()
-        local printed_volume = string.format(" %3d%%", current_volume)
-        local notif_text = ""
-        local bar_count = math.floor(current_volume * bar_char_count / 100 + 0.5)
-        notif_text = string.rep("|", bar_count) .. string.rep(" ", bar_char_count - bar_count)
         local notify_args = {
             title = "Volume",
-            text = notif_text .. printed_volume,
+            text = w_helper:make_progress_bar(),
             timeout = 1,
         }
         if mute_state then
@@ -108,10 +108,7 @@ local function factory(args)
         w_helper:update()
     end
 
-    --[[ allows control volume level by:
-    - clicking on the widget to mute/unmute
-    - scrolling when cursor is over the widget
-    ]]
+    --[[ allows control volume level by: - clicking on the widget to mute/unmute ]]
     volume_widget:connect_signal("button::press", function(_,_,_,button,mods)
         if (button == 1) then volume_widget:toggle_mute() end
     end)
