@@ -25,6 +25,7 @@ local function factory(args)
     }
 
     local helper_args = {
+        name = "volume",
         widget = volume_widget,
         -- control with mouse wheel when cursor is over the widget
         handle_mouse_wheel = true
