@@ -34,12 +34,13 @@ local function factory(args)
     w_helper:set_image("display-brightness-symbolic.svg")
 
     local widget_update_pending = false
-    local last_update = 0
+    local last_set = 0
     local current_backlight = 0
 
     function w_helper:set_percentage(percentage)
         awful.spawn(string.format("xbacklight =%d", percentage), false)
         current_backlight = percentage
+        last_set = os.clock()
     end
 
     local function get_percentage(self)
@@ -52,15 +53,16 @@ local function factory(args)
 
     w_helper.get_percentage = get_percentage
 
-    function backlight_widget:_update_widget(stdout, stderr, _, _)
+    local function update_widget(stdout, stderr, _, _)
         local backlight = tonumber(stdout)
         local clock_now = os.clock()
         -- set are not immediate (there is a delay before the get is right), workaround that
-        if (clock_now - last_update > 0.1) then
-            if (backlight == nil) then
+        if (clock_now - last_set > 0.2) then
+            if backlight == nil then
                 w_helper.get_percentage = get_dummy_percentage
             else
                 w_helper.get_percentage = get_percentage
+                current_backlight = math.floor(backlight + 0.5)
             end
             last_update = clock_now
         end
@@ -77,7 +79,7 @@ local function factory(args)
         if (need_xbacklight_get) then
             widget_update_pending = true
             spawn.easy_async("xbacklight -get", function(stdout, stderr, exitreason, exitcode)
-                backlight_widget:_update_widget(stdout, stderr, exitreason, exitcode)
+                update_widget(stdout, stderr, exitreason, exitcode)
             end)
         end
     end
@@ -99,7 +101,6 @@ local function factory(args)
         if (button == 1) then
             w_helper:increase_perct(50 - w_helper:get_percentage())
         end
-
     end)
 
     w_helper:update()
