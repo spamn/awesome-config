@@ -1,7 +1,6 @@
 local awful = require("awful")
 local wibox = require("wibox")
 local spawn = require("awful.spawn")
-local naughty = require("naughty")
 local helpers = require("lib.helpers")
 
 local function factory(args)
@@ -23,119 +22,87 @@ local function factory(args)
         end
     }
 
-    backlight_widget._path_to_icons = args.path_to_icons or "/usr/share/icons/Adwaita/scalable/status/"
-    backlight_widget.image = backlight_widget._path_to_icons .. "display-brightness-symbolic.svg"
-    backlight_widget.increase = 0
-    backlight_widget._widget_update_pending = false
-    backlight_widget._notification = nil
-    backlight_widget._bar_char_count = args.bar_char_count or 20
-    backlight_widget._value = 0
-    backlight_widget._increase = 0
-    backlight_widget._last_update = 0
+    local helper_args = {
+        name = "backlight",
+        widget = backlight_widget,
+        -- control with mouse wheel when cursor is over the widget
+        handle_mouse_wheel = true
+    }
+    setmetatable(helper_args, { __index = args })
+    local w_helper = require('lib.widget_helper'):new(helper_args)
 
-    function backlight_widget:_update_widget(stdout, _, _, _)
+    w_helper:set_image("display-brightness-symbolic.svg")
+
+    local widget_update_pending = false
+    local last_update = 0
+    local current_backlight = 0
+
+    function w_helper:set_percentage(percentage)
+        awful.spawn(string.format("xbacklight =%d", percentage), false)
+        current_backlight = percentage
+    end
+
+    local function get_percentage(self)
+        return current_backlight
+    end
+
+    local function get_dummy_percentage(self)
+        return 50
+    end
+
+    w_helper.get_percentage = get_percentage
+
+    function backlight_widget:_update_widget(stdout, stderr, _, _)
         local backlight = tonumber(stdout)
         local clock_now = os.clock()
         -- set are not immediate (there is a delay before the get is right), workaround that
-        if (clock_now - backlight_widget._last_update > 0.1) then
-            self._backlight = backlight or 0
-        end
-
-        backlight_widget._last_update = clock_now
-        self._widget_update_pending = false
-
-        if self._increase ~= 0 then
-            backlight = self._backlight + self._increase
-            self._increase = 0
-            if backlight > 100 then
-                backlight = 100
-            elseif backlight < 0 then
-                backlight = 0
+        if (clock_now - last_update > 0.1) then
+            if (backlight == nil) then
+                w_helper.get_percentage = get_dummy_percentage
+            else
+                w_helper.get_percentage = get_percentage
             end
-            awful.spawn("xbacklight =" .. math.floor(0.5 + backlight) .. "%", false)
-            self._backlight = backlight
+            last_update = clock_now
         end
 
-        self:update_notification()
+        widget_update_pending = false
+
+        w_helper:handle_increment()
+        w_helper:update_notification()
     end
 
-    function backlight_widget:update_notification()
-        if self._notification ~= nil then
-            self:notify()
-        end
-    end
-
-    function backlight_widget:update()
+    function w_helper:update()
         local need_xbacklight_get = true
-        need_xbacklight_get = need_xbacklight_get and (not self._widget_update_pending)
+        need_xbacklight_get = need_xbacklight_get and (not widget_update_pending)
         if (need_xbacklight_get) then
-            self._widget_update_pending = true
+            widget_update_pending = true
             spawn.easy_async("xbacklight -get", function(stdout, stderr, exitreason, exitcode)
-                self:_update_widget(stdout, stderr, exitreason, exitcode)
+                backlight_widget:_update_widget(stdout, stderr, exitreason, exitcode)
             end)
         end
     end
 
-    function backlight_widget:notify()
-        local printed_value = string.format(" %3d%%", math.floor(self._backlight + 0.5))
-        local notif_text = ""
-        local bar_count = math.floor(self._backlight * self._bar_char_count / 100 + 0.5)
-        notif_text = string.rep("|", bar_count) .. string.rep(" ", self._bar_char_count - bar_count)
+    function w_helper:notify()
         local notify_args = {
             title = "Backlight",
-            text = notif_text .. printed_value,
+            text = w_helper:make_progress_bar(),
             timeout = 1,
-            destroy = self.notification_destroyed_cb,
         }
-        if self._notification ~= nil then
-            notify_args.replaces_id = self._notification.id
-        end
-        self._notification = naughty.notify(notify_args)
+        w_helper:generate_notification(notify_args)
     end
 
     function backlight_widget:increase_value(increment)
-        local incr = tonumber(increment)
-        if incr ~= nil then
-            self._increase = self._increase + incr
-        end
-        self:update()
-        self:notify()
+        w_helper.increase_perct(increment)
     end
 
     backlight_widget:connect_signal("button::press", function(_,_,_,button,mods)
-        local increment = 5;
-        for i,mod in ipairs(mods) do
-            if mod == "Shift" then
-                increment = 1;
-            end
-        end
-        if (button == 4)     then backlight_widget:increase_value(increment)
-        elseif (button == 5) then backlight_widget:increase_value(-increment)
-        elseif (button == 1) then backlight_widget:increase_value(50 - backlight_widget._backlight)
+        if (button == 1) then
+            w_helper:increase_perct(50 - w_helper:get_percentage())
         end
 
     end)
 
-    function backlight_widget:m_enter()
-        self:notify()
-        self:update()
-    end
-
-    function backlight_widget.notification_destroyed_cb()
-        backlight_widget._notification = nil
-    end
-
-    function backlight_widget:m_leave()
-        if (self._notification ~= nil) then
-            naughty.destroy(self._notification)
-        end
-    end
-
-    backlight_widget:connect_signal("mouse::enter", function() backlight_widget:m_enter() end)
-    backlight_widget:connect_signal("mouse::leave", function() backlight_widget:m_leave() end)
-
-    backlight_widget:update()
-    helpers.newtimer("backlight", 60, function() backlight_widget:update() end)
+    w_helper:update()
 
     return backlight_widget
 end

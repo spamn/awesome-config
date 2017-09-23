@@ -67,7 +67,7 @@ local function factory(args)
         current_volume = percentage
     end
 
-    function w_helper.get_percentage()
+    function w_helper:get_percentage()
         return current_volume
     end
 
