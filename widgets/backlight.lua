@@ -94,7 +94,7 @@ local function factory(args)
     end
 
     function backlight_widget:increase_value(increment)
-        w_helper.increase_perct(increment)
+        w_helper:increase_perct(increment)
     end
 
     backlight_widget:connect_signal("button::press", function(_,_,_,button,mods)
